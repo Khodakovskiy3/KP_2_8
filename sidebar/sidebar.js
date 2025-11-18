@@ -1,44 +1,40 @@
-async function createSimpleRoom() {
+async function createRoom() {
   try {
-    const roomName = this.newRoomName || `Room_${Math.random().toString(36).substr(2, 5)}`;
+    console.log('Creating room...');
+    const roomName = this.newRoomName || 'New Room';
     
-    const res = await fetch('https://matrix.org/_matrix/client/r0/createRoom', {
+    const response = await fetch('https://matrix.org/_matrix/client/r0/createRoom', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.accessToken}`
       },
-      body: JSON.stringify({ 
-        preset: 'private_chat', 
-        name: roomName
+      body: JSON.stringify({
+        name: roomName,
+        preset: 'private_chat'
       })
     });
     
-    const data = await res.json();
+    const data = await response.json();
+    console.log('Create room response:', data);
+    
     if (data.room_id) {
       this.newRoomId = data.room_id;
       this.roomId = data.room_id;
-      this.newRoomName = ''; // Очищаємо поле після створення
+      this.newRoomName = '';
       this.messages = [];
       this.lastSyncToken = '';
+      alert(`Room created: ${data.room_id}`);
       await this.fetchRoomsWithNames();
       this.fetchMessages();
       this.fetchRoomMembers();
-      
-      alert(`Room created with ID: ${data.room_id}`);
     } else {
-      console.error('Create room failed:', data);
-      alert('Create room failed: ' + (data.error || 'Unknown error'));
+      alert('Failed to create room: ' + (data.error || 'Unknown error'));
     }
-  } catch (e) {
-    console.error('Create room error:', e);
-    alert('Create room error: ' + e.message);
+  } catch (error) {
+    console.error('Error creating room:', error);
+    alert('Error creating room: ' + error.message);
   }
-}
-
-// Головна функція створення кімнати
-async function createRoom() {
-  await this.createSimpleRoom();
 }
 
 async function fetchRoomsWithNames() {
