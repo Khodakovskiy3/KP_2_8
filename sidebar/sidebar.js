@@ -1,6 +1,6 @@
 async function createSimpleRoom() {
   try {
-    const roomName = `Room_${Math.random().toString(36).substr(2, 5)}`;
+    const roomName = this.newRoomName || `Room_${Math.random().toString(36).substr(2, 5)}`;
     
     const res = await fetch('https://matrix.org/_matrix/client/r0/createRoom', {
       method: 'POST',
@@ -18,6 +18,7 @@ async function createSimpleRoom() {
     if (data.room_id) {
       this.newRoomId = data.room_id;
       this.roomId = data.room_id;
+      this.newRoomName = ''; // Очищаємо поле після створення
       this.messages = [];
       this.lastSyncToken = '';
       await this.fetchRoomsWithNames();
@@ -35,6 +36,7 @@ async function createSimpleRoom() {
   }
 }
 
+// Головна функція створення кімнати
 async function createRoom() {
   await this.createSimpleRoom();
 }
@@ -48,13 +50,23 @@ async function fetchRoomsWithNames() {
     const data = await res.json();
     if (data.joined_rooms) {
       const roomPromises = data.joined_rooms.map(async (roomId) => {
-        const nameRes = await fetch(`https://matrix.org/_matrix/client/r0/rooms/${encodeURIComponent(roomId)}/state/m.room.name`, {
-          headers: { 'Authorization': `Bearer ${this.accessToken}` }
-        });
-        const nameData = await nameRes.json();
+        try {
+          const nameRes = await fetch(`https://matrix.org/_matrix/client/r0/rooms/${encodeURIComponent(roomId)}/state/m.room.name`, {
+            headers: { 'Authorization': `Bearer ${this.accessToken}` }
+          });
+          if (nameRes.ok) {
+            const nameData = await nameRes.json();
+            return {
+              roomId,
+              name: nameData?.name || roomId
+            };
+          }
+        } catch (e) {
+          console.warn(`Could not fetch name for room ${roomId}:`, e);
+        }
         return {
           roomId,
-          name: nameData?.name || this.getRoomName(roomId) || roomId
+          name: roomId
         };
       });
       this.rooms = (await Promise.all(roomPromises))
@@ -101,9 +113,8 @@ async function inviteUserToRoom() {
       console.error('Invite failed:', data);
       alert('Invite failed: ' + (data.error || 'Unknown error'));
     } else {
+      alert(`User ${this.inviteUser} invited to room successfully!`);
       this.inviteUser = '';
-      alert(`${this.inviteUser} invited to ${this.roomId}`);
-      await this.fetchRoomsWithNames();
     }
   } catch (e) {
     console.error('Invite error:', e);
@@ -122,13 +133,14 @@ async function joinRoom() {
     });
     const data = await res.json();
     if (data.room_id) {
-      this.roomId = this.joinRoomId.trim();
+      this.roomId = data.room_id;
       this.joinRoomId = '';
       this.messages = [];
       this.lastSyncToken = '';
       await this.fetchRoomsWithNames();
       this.fetchMessages();
       this.fetchRoomMembers();
+      alert('Successfully joined the room!');
     } else {
       console.error('Join failed:', data);
       alert('Join failed: ' + (data.error || 'Unknown error'));
